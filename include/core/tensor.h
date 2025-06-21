@@ -28,6 +28,33 @@ class OpBase;
 
 
 /* -------------------------------------------------------------------------- */
+/*                                  WorkSpace                                 */
+/* -------------------------------------------------------------------------- */
+
+
+class WorkSpace {
+public:
+    void* ptr() { return m_data; };
+
+    template <typename T>
+    T* ptr() {
+        return static_cast<T*>(m_data);
+    }
+
+    size_t length() { return m_length; }
+
+    void set_memory(void* data, size_t length) {
+        m_data = data;
+        m_length = length;
+    }
+
+private:
+    void* m_data = nullptr;
+    size_t m_length = 0;
+};
+
+
+/* -------------------------------------------------------------------------- */
 /*                                   Tensor                                   */
 /* -------------------------------------------------------------------------- */
 enum class TensorState {
@@ -108,7 +135,6 @@ public:
     TensorState recall_data();
     virtual TensorState prepare_data(); // 确保张量数据准备好，可供使用
     size_t read_data_from_file();   // 从文件读取张量数据
-    void preprocess_data();     // 数据预处理
 
 
 /* ---------------------------------- 成员变量 ---------------------------------- */
@@ -134,30 +160,6 @@ private:
 };
 
 
-/* -------------------------------------------------------------------------- */
-/*                                  WorkSpace                                 */
-/* -------------------------------------------------------------------------- */
 
-
-class WorkSpace {
-public:
-    void* ptr() { return m_data; };
-
-    template <typename T>
-    T* ptr() {
-        return static_cast<T*>(m_data);
-    }
-
-    size_t length() { return m_length; }
-
-    void set_memory(void* data, size_t length) {
-        m_data = data;
-        m_length = length;
-    }
-
-private:
-    void* m_data = nullptr;
-    size_t m_length = 0;
-};
 
 }  // namespace inferllm

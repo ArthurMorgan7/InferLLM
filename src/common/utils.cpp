@@ -42,21 +42,22 @@ Vocab::Id llama_sample_top_p_top_k(
     std::vector<std::pair<double, Vocab::Id>> logits_id;
     logits_id.reserve(n_logits);
 
+    /* ------------------------------- 重复乘法 & 温度缩放 ------------------------------ */
     {
         const double scale = 1.0 / temp;
         for (int i = 0; i < n_logits; ++i) {
             // repetition penalty from CTRL paper (https://arxiv.org/abs/1909.05858)
             // credit
             // https://github.com/facebookresearch/llama/compare/main...shawwn:llama:main
+            
             if (std::find(last_n_tokens.begin(), last_n_tokens.end(), i) != last_n_tokens.end()) {
                 // if score < 0 then repetition penalty has to multiplied to reduce the
                 // previous token probability
                 if (logits[i] < 0.0) {
-                    logits_id.push_back(
-                            std::make_pair(logits[i] * scale * repeat_penalty, i));
-                } else {
-                    logits_id.push_back(
-                            std::make_pair(logits[i] * scale / repeat_penalty, i));
+                    logits_id.push_back(std::make_pair(logits[i] * scale * repeat_penalty, i));
+                } 
+                else {
+                    logits_id.push_back(std::make_pair(logits[i] * scale / repeat_penalty, i));
                 }
             } 
             else {
@@ -65,8 +66,10 @@ Vocab::Id llama_sample_top_p_top_k(
         }
     }
 
+    // 取前 top k 个 token
     sample_top_k(logits_id, top_k);
 
+    /* ------------------------------- softMax 转换 ------------------------------- */
     double maxl = -INFINITY;
     for (const auto& kv : logits_id) {
         maxl = std::max(maxl, kv.first);
@@ -82,12 +85,11 @@ Vocab::Id llama_sample_top_p_top_k(
         probs.push_back(p);
         sum += p;
     }
-
-    // normalize the probs
     for (auto& p : probs) {
         p /= sum;
     }
 
+    /* -------------------------------- 用于 Top-p -------------------------------- */
     if (top_p < 1.0f) {
         double cumsum = 0.0f;
         for (int i = 0; i < (int)probs.size(); i++) {
@@ -113,6 +115,7 @@ Vocab::Id llama_sample_top_p_top_k(
     // printf("\n\n");
     // exit(0);
 
+    // 根据概率分布随机采样
     std::discrete_distribution<> dist(probs.begin(), probs.end());
     int idx = dist(rng);
 

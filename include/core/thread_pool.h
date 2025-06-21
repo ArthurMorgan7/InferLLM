@@ -39,9 +39,10 @@
 
 namespace inferllm {
 
-/**
- * \brief Worker and related flag
- */
+
+/* -------------------------------------------------------------------------- */
+/*                  对线程的封装，给线程附加更多的信息                            */
+/* -------------------------------------------------------------------------- */
 struct Worker {
 public:
     Worker(std::function<void()>&& run) 
@@ -50,35 +51,30 @@ public:
     ~Worker() { thread.join(); }
 
 public:
-    //! Worker thread
-    std::thread thread;
-    //! Indicate whether the Worker thread need run
-    std::atomic<bool> work_flag{false};
+    std::thread thread; // 线程本身
+    std::atomic<bool> work_flag{false}; // 控制线程是否工作
 };
 
 
 
-/**
- * \brief ThreadPool execute the task in multi-threads(nr_threads>1) mode , it
- * will fallback to single-thread mode if nr_thread is 1.
- */
+/* -------------------------------------------------------------------------- */
+/*                                    线程池类                                    */
+/* -------------------------------------------------------------------------- */
 class ThreadPool {
-public:
-    //! Create thread-pool nr_threads thread_pool
-    ThreadPool(uint32_t nr_threads);
-    //! The main thread set the task, parallelism and worker flag to
-    //! notify other thread.
-    void add_task(const MultiThreadingTask& task, uint32_t nr_task);
+private:
+    uint32_t m_nr_threads = 1;          // 线程数量
+    uint32_t m_nr_task = 0;             // 任务数量
+    uint32_t m_task_per_thread = 0;     // 每个线程的任务数量
+    std::atomic_bool m_stop{false};     // 停止状态标志
+    std::atomic_bool m_active{false};   // 运行状态标志
+    std::vector<Worker*> m_workers;     // 池中的线程对象的指针的集合
 
-    inline void sync();
-    //! wake up all the threads from cv.wait(), when the thread pool is not
-    //! active, all the threads will go to sleep.
-    inline void active();
-    //! all the threads go to sleep which will reduce CPU occupation
-    void deactive();
-    ~ThreadPool();
+    MultiThreadingTask m_task;          // 任务函数
 
-    uint32_t nr_threads() const { return m_nr_threads; }
+
+    // 工具
+    std::condition_variable m_cv;       // 条件变量
+    std::mutex m_mutex;                 // 互斥量
 
     //! The number of iterations < main thread yeild resource>
     static constexpr int MAIN_THREAD_ACTIVE_WAIT = 10000;
@@ -87,20 +83,29 @@ public:
     //! The number of iterations <pause>
     static constexpr int ACTIVE_WAIT_PAUSE_LIMIT = 16;
 
-private:
-    uint32_t m_nr_threads = 1;
-    //! All the sub task number
-    uint32_t m_nr_task = 0;
-    uint32_t m_task_per_thread = 0;
-    std::atomic_bool m_stop{false};
-    std::atomic_bool m_active{false};
-    //! The executable funcition pointer
-    MultiThreadingTask m_task;
 
-    std::vector<Worker*> m_workers;
-    //! The cv and mutex for threading activity
-    std::condition_variable m_cv;
-    std::mutex m_mutex;
+public:
+    // 在构造函数中创建线程，来启动线程池
+    ThreadPool(uint32_t nr_threads);
+    
+    // 回收线程，来销毁线程池
+    ~ThreadPool();
+    
+    // 添加任务
+    void add_task(const MultiThreadingTask& task, uint32_t nr_task);
+    
+    // 将线程池设为休眠状态
+    void deactive();
+
+    // 获取线程池的线程数量
+    uint32_t nr_threads() const { return m_nr_threads; }
+
+private:
+    inline void sync();
+    //! wake up all the threads from cv.wait(), when the thread pool is not
+    //! active, all the threads will go to sleep.
+    inline void active();
+    
 };
 
 }  // namespace inferllm

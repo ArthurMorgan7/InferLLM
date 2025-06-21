@@ -32,27 +32,28 @@ void Graph::load(std::shared_ptr<InputFile> fin, LlmParams& param,std::shared_pt
     fin->read_raw((char*)&magic, sizeof(magic));
     INFER_ASSERT(magic == 0x123456, "model magic is not create!!!!");
     
-    // 加载参数和词汇表(为model_imp对象的成员变量服务)
+    // 加载参数和词汇表，权重数据没有读
     load_param(fin, param, vocab);  // 虚函数
 
     // 构建模型
     construct_llm();                // 虚函数
 
-    // 收集各模块权重
+    // 收集各模块权重(只收集了指针)
     collect_weights();
 
     // 设置映射表
     set_weights_alias();            // 虚函数
 
 
+    // 正式开始读取权重数据
     size_t weight_length = 0;
     while (true) {
         if (fin->eof()) break;
    
-        // 读取一个 tensor 的元数据
+        // 读取一个 tensor 的头部元数据
         int32_t n_dims;     // 维度
-        int32_t length;     // ???
-        int32_t ftype;      // 数据类型
+        int32_t length;     // 权重名称的字节长度
+        int32_t ftype;      // 元素的数据类型
         fin->read_raw(reinterpret_cast<char*>(&n_dims), sizeof(n_dims));
         fin->read_raw(reinterpret_cast<char*>(&length), sizeof(length));
         fin->read_raw(reinterpret_cast<char*>(&ftype), sizeof(ftype));
@@ -82,8 +83,10 @@ void Graph::load(std::shared_ptr<InputFile> fin, LlmParams& param,std::shared_pt
         }
 
         INFER_ASSERT(m_weights_map.count(alias_name) == 1,"Error weight is not found when loading.");
-        auto weight = m_weights_map[alias_name];
-        if (weight->length() != nr_number) {
+
+
+        auto weight = m_weights_map[alias_name];    // 权重的元素数量
+        if (weight->length() != nr_number) {        
             INFER_LOG("weight %s %zu is not match.\n", alias_name.c_str(), weight->length());
         }
 
@@ -92,9 +95,9 @@ void Graph::load(std::shared_ptr<InputFile> fin, LlmParams& param,std::shared_pt
         
         // 记录文件位置，设置数据类型，跳过实际数据
         // 没有马上加载数据，而是记录偏移以便后续读取
-        weight->set_file(fin, fin->tell());     // 这一步就是载入权重
-        weight->set_dtype(convert_dtype(ftype));
-        fin->skip(weight->length_in_byte());
+        weight->set_file(fin, fin->tell());         // 权重的起始指针
+        weight->set_dtype(convert_dtype(ftype));    // 权重数据的类型
+        fin->skip(weight->length_in_byte());        // 移动文件指针跳过该权重
         weight_length += weight->length_in_byte();
     }
     INFER_LOG("total weight length = %lu\n", weight_length);
@@ -111,6 +114,7 @@ void Graph::collect_weights() {
         }
     }
 }
+
 
 std::string Graph::get_weight_alias(const std::string& name) {
     std::regex reg_get("\\.(\\d+)\\.");
@@ -163,7 +167,7 @@ DType Graph::convert_dtype(int32_t type) {
 /* ---------------------------------- 执行计算图 ---------------------------------- */
 void Graph::execute(std::vector<int32_t> in_token, std::vector<float>& logist, uint32_t nr_past, bool prefill) {
     
-    // 检查输入token序列的长度
+    // 如果当前输入还没初始化，或者输入的形状发生了变化
     if (m_input->dims() == 0 || !same_input_shape(in_token)) {
         m_input->set_shape({in_token.size()}, DType::Int32);
         size_t len = get_workspace_in_byte();
@@ -183,7 +187,9 @@ void Graph::execute(std::vector<int32_t> in_token, std::vector<float>& logist, u
 
     // 然后将输入 token 数据从主机（CPU）复制到设备（GPU/其他）
     m_input->resume_user_count();
-    m_input->prepare_data();
+    m_input->prepare_data();    // 分配内存
+
+    // 把输入移动到需要计算设备上
     m_device->host2device_copy(m_input->ptr(), in_token.data(), in_token.size() * sizeof(int32_t), true);
     
     INFER_ASSERT(m_output->length() == logist.size(), "output length is not match with logist size");
@@ -193,6 +199,7 @@ void Graph::execute(std::vector<int32_t> in_token, std::vector<float>& logist, u
         m_modules[i]->execute(m_workspace.get(), nr_past, prefill);
     }
 
+    // 如果是在GPU端计算，还需要把输出拷贝到主机内存上
     if (!prefill) {
         m_device->device2host_copy(logist.data(), m_output->ptr(), logist.size() * sizeof(float), true);
     }
@@ -219,11 +226,14 @@ bool Graph::same_input_shape(std::vector<int32_t> in_token) {
 }
 
 
+// 它遍历整个图中的所有模块，逐个查询它们所需的工作区大小，取其中的最大值，用于统一分配足够的工作区内存
 size_t Graph::get_workspace_in_byte() {
     size_t max_workspace = 0;
     for (size_t i = 0; i < m_modules.size(); i++) {
         m_modules[i]->deduce_output_shape();
         size_t workspace = m_modules[i]->get_workspace_in_byte();
+
+        // 取最大值
         max_workspace = workspace > max_workspace ? workspace : max_workspace;
     }
     return max_workspace;

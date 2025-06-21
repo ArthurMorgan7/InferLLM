@@ -21,9 +21,7 @@ void ChatGLMGraph3::set_weights_alias() {
 }
 
 //! LlamaGraph
-void ChatGLMGraph3::load_param(
-        std::shared_ptr<InputFile> fin, LlmParams& param,
-        std::shared_ptr<Vocab> vocab) {
+void ChatGLMGraph3::load_param(std::shared_ptr<InputFile> fin, LlmParams& param,std::shared_ptr<Vocab> vocab) {
     Header header;
     // load model header
     fin->read_raw((char*)&header.param_offset, sizeof(header.param_offset));
@@ -32,8 +30,9 @@ void ChatGLMGraph3::load_param(
     fin->read_raw((char*)&header.vocab_length, sizeof(header.vocab_length));
     fin->read_raw((char*)&header.tensor_offset, sizeof(header.tensor_offset));
 
+
+    // 根据 param_offset，只加载模型文件中的参数数据
     fin->seek(header.param_offset);
-    // load param
     fin->read_raw((char*)&param.n_embd, sizeof(param.n_embd));
     fin->read_raw((char*)&param.n_head, sizeof(param.n_head));
     fin->read_raw((char*)&param.n_layer, sizeof(param.n_layer));
@@ -43,25 +42,26 @@ void ChatGLMGraph3::load_param(
     fin->read_raw((char*)&multi_query, sizeof(multi_query));
     param.is_multi_query = multi_query > 0;
     fin->read_raw((char*)&param.multi_query_group_num, sizeof(param.multi_query_group_num));
-
     m_param = param;
     
 
-    // load vocab
+    // 根据 vocab_offset， 只加载模型文件中的词表
     fin->seek(header.vocab_offset);
     vocab->load_vocab(fin, param.n_vocab);
-
     m_param.n_vocab = 65024;
     param.n_vocab = 65024;
+
+    // 跳到权重数据的地方，并为
     fin->seek(header.tensor_offset);
 }
 
 void ChatGLMGraph3::construct_llm() {
+    // 用来存储输入
     m_input = std::make_shared<Tensor>(device(), name() + ":input");
     std::shared_ptr<Tensor> input = m_input;
+    
     //! embd
-    input = add_module<EmbdModule>(
-            this, input, m_param.n_embd, m_param.n_vocab, model_config(), device(), "");
+    input = add_module<EmbdModule>(this, input, m_param.n_embd, m_param.n_vocab, model_config(), device(), "");
 
     int nr_layer = m_param.n_layer;
     for (int i = 0; i < nr_layer; i++) {
@@ -100,12 +100,14 @@ void ChatGLMGraph3::construct_llm() {
         auto ffn_output = add_module<Glm2FFNModule>(
                 this, ffn_norm_out, m_param.n_embd, m_param.n_mult, model_config(),
                 device(), name);
+
         //! add ffn_norm_out * scale + ffn_output
         input = add_one_opr_module<Elemwise>(
                         this, OpIOs{feed_forward_input, ffn_output}, device(),
                         name + ".ffn.Elemwise")
                         ->add_opr(ElemMode::Add);
     }
+
     //! the last layer
     m_output = add_module<HeadModule>(
             this, input, m_param.n_embd, m_param.n_vocab, model_config(), device(),

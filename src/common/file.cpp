@@ -7,7 +7,7 @@ using namespace inferllm;
 InputFile::InputFile(const std::string& path, bool enable_mmap)
     : m_enable_mmap{enable_mmap} 
 {
-    // 使用标准IO打开文件
+    // 使用标准IO fopen 打开文件
     m_file = fopen(path.c_str(), "rb");
     INFER_ASSERT(m_file, "Failed to open model file.");
     

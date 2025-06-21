@@ -457,6 +457,8 @@ inline void elemwise_vector_gelu(
     }
 }
 
+/* --------------------------- elemwise_vec_scale --------------------------- */
+
 INFER_ATTRIBUTE_TARGET("avx2")
 inline void elemwise_vec_scale(
         const int n, const float* __restrict x, float scale, float* __restrict z) {
@@ -480,6 +482,8 @@ inline void elemwise_vec_scale(
         z[i] = x[i] * scale;
     }
 }
+
+/* ---------------------------- reduce_square_sum --------------------------- */
 
 INFER_ATTRIBUTE_TARGET("avx2")
 inline float reduce_square_sum(const int n, const float* __restrict x) {
@@ -526,6 +530,8 @@ inline float reduce_square_sum(const int n, const float* __restrict x) {
     return sum;
 }
 
+/* ------------------------------- reduce_max ------------------------------- */
+
 INFER_ATTRIBUTE_TARGET("avx2")
 inline float reduce_max(const int n, const float* __restrict x) {
     float result = 0.0f;
@@ -569,6 +575,8 @@ inline float reduce_max(const int n, const float* __restrict x) {
     }
     return max;
 }
+
+/* ---------------------- select_sub_max_and_reduce_sum --------------------- */
 
 INFER_ATTRIBUTE_TARGET("avx2")
 inline float select_sub_max_and_reduce_sum(
@@ -653,6 +661,8 @@ inline float select_sub_max_and_reduce_sum(
     }
     return sum;
 }
+
+/* --------------------- compute_src_offset_embd_matmul --------------------- */
 
 INFER_ATTRIBUTE_TARGET("avx2")
 inline void compute_src_offset_embd_matmul(

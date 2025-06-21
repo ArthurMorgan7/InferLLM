@@ -27,7 +27,7 @@ public:
     OpIOs inputs() { return m_inputs; }
     OpIOs outputs() { return m_outputs; }
     Kernel* get_kernel() { return m_device->kernel(); }
-    
+     
 
     void set_name(std::string name) { m_name = name; }
     void set_weights(OpIOs weights);        // 把权重张量绑定到该算子    
@@ -35,13 +35,16 @@ public:
     void add_outputs(std::shared_ptr<Tensor> output);   // 把输出张量绑定到该算子
 
     virtual void pre_execute() {
+        // 准备权重数据，加载到内存
         for (auto weight : m_weights) {
             weight->prepare_data();
         }
+
+        // 准备输出张量
         for (auto output : m_outputs) {
             if (output->get_curr_user_count() == 0 && !output->shared()) {
                 output->resume_user_count();
-                output->prepare_data();
+                output->prepare_data(); // 加载到内存
             }
         }
     };

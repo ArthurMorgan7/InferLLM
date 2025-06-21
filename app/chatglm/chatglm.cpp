@@ -1,3 +1,4 @@
+#include "model.h"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -11,7 +12,8 @@
 #include <unistd.h>
 
 
-#include "model.h"
+using namespace std;
+
 
 struct app_params {
     // 基础配置参数
@@ -153,8 +155,42 @@ void fix_word(std::string& word) {
     }
 }
 
+void readInput(string &user_input){
+    bool another_line = true;
+    while (another_line) {
+        fflush(stdout);
+        std::string input;  // input 暂存用户输入
+        input.resize(256);
+        char* buf = const_cast<char*>(input.data());
+        int n_read;
+        int res = scanf("%255[^\n]%n%*c", buf, &n_read);    // 一次读取一行
+        
+
+        // 读取错误的处理
+        if (res == EOF) exit(-1);  
+        else if (res == 0) {
+            if (scanf("%*c") <= 0) {} // 读取一个字符，但不赋值给任何变量
+            n_read = 0;
+        }
+
+
+        // 读取成功且输入末尾是 '\'
+        if (n_read > 0 && buf[n_read - 1] == '\\') {
+            buf[n_read - 1] = '\n'; // 把 \\ 替换成 \n
+            // another_line = true;
+            input.resize(n_read + 1);
+        } 
+        else {
+            another_line = false;
+            input.resize(n_read);
+        }
+        user_input += input;    // 把当前行的输入拼接到整体的输入后面
+    }
+}
+
 
 int main(int argc, char** argv) {
+    /* --------------------------------- 基本参数配置 --------------------------------- */
     // 定义一个结构体用于存储命令行参数
     app_params params;
 
@@ -169,18 +205,16 @@ int main(int argc, char** argv) {
 
     fprintf(stderr, "%s: seed = %d\n", __func__, params.seed);
 
-    std::mt19937 rng(params.seed);
-
     // 命令行参数 → 模型参数
     inferllm::ModelConfig config;
     config.compt_type = params.dtype;       // 数据类型
     config.device_type = params.device;     // 运行设备
-    config.nr_thread = params.n_threads;    // 线程束
+    config.nr_thread = params.n_threads;    // CPU
     config.enable_mmap = params.use_mmap;   // 是否使用 mmap
     config.nr_ctx = params.n_ctx;           // 上下文窗口大小
 
     std::string model_name;    // 模型名称
-    uint32_t etoken;           // 结尾token的id
+    uint32_t etoken;           // 结尾字符的 token id
     if(params.version == 1){
         model_name = "chatglm";
         etoken = 130005;
@@ -193,11 +227,6 @@ int main(int argc, char** argv) {
         etoken = 2;
     }
 
-    // 创建模型实例 model ※ 
-    std::shared_ptr<inferllm::Model> model = std::make_shared<inferllm::Model>(config, model_name);
-    model->load(params.model);
-    model->init(params.top_k, params.top_p, params.temp, params.repeat_penalty, params.repeat_last_n, params.seed, etoken);
-
     // 自定义 Ctrl C 信号的处理函数
     struct sigaction sigint_action;
     sigint_action.sa_handler = sigint_handler;  // 设置信号处理函数
@@ -205,7 +234,6 @@ int main(int argc, char** argv) {
     sigint_action.sa_flags = 0;
     sigaction(SIGINT, &sigint_action, NULL);
     
-    /* ---------------------------------- 可视化输出（不重要） --------------------------------- */
     // 打印基本的参数
     fprintf(stderr, "%s: interactive mode on.\n", __func__);
     fprintf(stderr,
@@ -217,6 +245,14 @@ int main(int argc, char** argv) {
 
     std::vector<char> embd;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  main                                  */
+    /* -------------------------------------------------------------------------- */
+    // ※ 创建模型实例 model  
+    std::shared_ptr<inferllm::Model> model = std::make_shared<inferllm::Model>(config, model_name);
+    model->load(params.model);
+    model->init(params.top_k, params.top_p, params.temp, params.repeat_penalty, params.repeat_last_n, params.seed, etoken);
+
     // 文本提示
     fprintf(stderr,
             "== 运行模型中. ==\n"
@@ -224,97 +260,56 @@ int main(int argc, char** argv) {
             " - 如果你想换行，请在行末输入'\\'符号.\n");
 
     
-
-    /* -------------------------------------------------------------------------- */
-    /*                                  main loop                                 */
-    /* -------------------------------------------------------------------------- */
     bool is_interacting = true;     // True: 输入用户问题   False：输出模型响应
     std::string user_input, output; // 输入输出的字符串
     int iter = 0;       // 轮次编号
     int token_id = 0;   // 当前轮输出的 token 计数
-
+    bool flag = true;   // 切换标志
+    // int last_token;
     // 直到模型剩余的 token 用完才结束
     while (model->get_remain_token() > 0) {
-        printf("\n> ");
-        bool another_line = true;
-
-        // 如果是版本 2，则在输入前添加对话格式前缀
-        if (params.version == 2) {
+        /* ------------------------------- 生成 token 头 ------------------------------- */
+        if(flag){
+            // 处理输入
+            printf("\n> ");
             user_input = "[Round " + std::to_string(iter) + "]\n\n问：";
-        }
-
-
-        /* ---------------------------------- 处理输入 ---------------------------------- */
-        while (another_line) {
-            fflush(stdout);
-            std::string input;  // input 暂存用户输入
-            input.resize(256);
-            char* buf = const_cast<char*>(input.data());
-            int n_read;
-            int res = scanf("%255[^\n]%n%*c", buf, &n_read);    // 一次读取一行
-            
-
-            // 读取错误的处理
-            if (res == EOF) return 0;   
-            else if (res == 0) {
-                if (scanf("%*c") <= 0) {} // 读取一个字符，但不赋值给任何变量
-                n_read = 0;
-            }
-
-
-            // 读取成功且输入末尾是 '\'
-            if (n_read > 0 && buf[n_read - 1] == '\\') {
-                buf[n_read - 1] = '\n'; // 把 \\ 替换成 \n
-                // another_line = true;
-                input.resize(n_read + 1);
-            } 
-            else {
-                another_line = false;
-                input.resize(n_read);
-            }
-            user_input += input;    // 把当前行的输入拼接到整体的输入后面
-        }
-
-        // 如果是版本 2，则在输入后添加对话格式后缀，引导模型回答
-        if (params.version == 2) {
+            readInput(user_input); 
             user_input += "\n\n答：";
-        }
-
-        if (user_input.empty()) continue;
-
-        /* ---------------------------------- 模型推理 ---------------------------------- */
         
-        // 初次生成
-        int token;
-        output = model->decode(user_input, token);  // decode 模型的接口函数，理解输入，生成输出 output，
-        fix_word(output); 
-        printf("%s", output.c_str());
-        fflush(stdout);  
-        user_input.clear();
-        iter++;
 
-        // 迭代生成
-        is_interacting = false;
-        while (!is_interacting) {
-            std::string o = model->decode_iter(token);  // 以 input 生成的第一个 token 为基础继续补全
+            // 根据输入，推理出 token 头，得到其对应的字符串
+            output = model->decode(user_input);  // 🌟
+            
+            // 处理并显示字符串
+            fix_word(output); 
+            printf("%s", output.c_str());
+            fflush(stdout);  
+            user_input.clear();
+
+            // 更新重要变量
+            flag = false;
+            iter++;
+        }
+        /* ------------------------------- 迭代生成后续 token ------------------------------- */
+        else{
+            // 根据上一个 token 推导下一个 token，得到对应的字符串
+            int token;
+            string o = model->decode_iter(token);   // 🌟
+            
+            // 处理输出并显示
             fix_word(o);
             printf("%s", o.c_str());
             fflush(stdout);
             token_id++;
-            iter++;           // after answering the question, get the user input again
-
-            // TODO 实时更新摘要？
-            if (token_id % 10 == 0) {
-                running_summary = model->decode_summary();
-            }
+            iter++;
 
             // 输出完毕
             if (token == etoken) {
                 printf("\n");
-                running_summary = model->decode_summary();
-                is_interacting = true;
+                flag = true;
             }
-        } 
+        }        
     }
+
     return 0;
 }

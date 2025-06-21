@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 
 # 添加预定义宏，管理条件编译代码
-add_definitions(-DINFER_PROFILE) 
+# add_definitions(-DINFER_PROFILE) # 是否开始Debug输出
 
 # 收集源文件
 file(GLOB_RECURSE SRC src/*.cpp src/*.h)
@@ -30,10 +30,10 @@ target_include_directories(InferLLM PUBLIC include src)
 
 
 # 生成可执行文件
-add_executable(chatglm application/chatglm/chatglm.cpp)
+add_executable(chatglm app/chatglm/chatglm.cpp)
 target_link_libraries(chatglm InferLLM)
 
-add_executable(quantizer application/quantizer.cpp)
+add_executable(quantizer app/quantizer.cpp)
 target_link_libraries(quantizer InferLLM)
 
 

@@ -144,8 +144,7 @@ void GPUDevice::free_host(void* ptr) {
 
 
 
-void GPUDevice::host2device_copy(
-        void* device, const void* host, size_t size, bool async) {
+void GPUDevice::host2device_copy(void* device, const void* host, size_t size, bool async) {
     if (async) {
         CUDA_CHECK(cudaMemcpyAsync(
                 device, host, size, cudaMemcpyHostToDevice, m_handle.stream));

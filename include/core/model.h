@@ -3,11 +3,9 @@
 #include <memory>
 #include <string>
 
-#if defined(_WIN32)
-#define API __declspec(dllexport)
-#else
+// 只向外提供最简单的接口，隐藏内部实现
+
 #define API __attribute__((visibility("default")))
-#endif
 
 namespace inferllm {
 
@@ -25,6 +23,9 @@ struct ModelConfig {
 class ModelImp;
 
 class API Model {
+private:
+    std::shared_ptr<ModelImp> m_model_imp;
+
 public:
     //! create a model by the model_name, the model_name must be registered
     //! internal before load it
@@ -47,15 +48,14 @@ public:
     void prefill(const std::string& promote);
 
     //! decode the answer one by one
-    std::string decode(const std::string& user_input, int& token);
+    std::string decode(const std::string& user_input);
 
     //! decode the answer one by one
     std::string decode_iter(int& token);
 
     std::string decode_summary() const;
 
-private:
-    std::shared_ptr<ModelImp> m_model_imp;
+
 };
 
 }  // namespace inferllm

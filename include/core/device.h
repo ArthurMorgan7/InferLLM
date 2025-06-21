@@ -46,14 +46,11 @@ public:
 
     virtual void deactive() {}
 
-    virtual void host2device_copy(
-            void* device, const void* host, size_t size, bool async = false) = 0;
+    virtual void host2device_copy(void* device, const void* host, size_t size, bool async = false) = 0;
 
-    virtual void device2host_copy(
-            void* host, const void* device, size_t size, bool async = false) = 0;
+    virtual void device2host_copy(void* host, const void* device, size_t size, bool async = false) = 0;
 
-    virtual void device2device_copy(
-            void* dst, const void* src, size_t size, bool async = false) = 0;
+    virtual void device2device_copy(void* dst, const void* src, size_t size, bool async = false) = 0;
 
     virtual void sync() = 0;
 
@@ -73,6 +70,7 @@ public:
     CPUDevice(KernelType type, uint32_t nr_thread) 
         : Device() 
     {
+        // 对于CPU设备，重点在于创建线程池
         m_thread_pool = make_unique<ThreadPool>(nr_thread);
         m_kernel = make_unique<Kernel>(type, m_thread_pool.get());
     }
@@ -107,10 +105,13 @@ private:
 
 #if ENABLE_GPU
 class GPUDevice : public Device {
+private:
+    cudaHandle m_handle;
 public:
     GPUDevice(int device) 
         : Device() 
     {
+        // 对于CUDA设备核心是创建流
         CUDA_CHECK(cudaSetDevice(0));
         CUDA_CHECK(cudaStreamCreate(&(m_handle.stream)));
         CUBLAS_CHECK(cublasCreate(&(m_handle.cublas_handle)));
@@ -147,8 +148,7 @@ public:
 
     bool unified_memory() override { return false; }
 
-private:
-    cudaHandle m_handle;
+
 };
 
 #endif

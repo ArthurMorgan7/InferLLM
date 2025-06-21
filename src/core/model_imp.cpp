@@ -15,16 +15,14 @@ ModelImp::ModelImp(const ModelConfig& config, const std::string& name)
     : m_name(name)
     , m_config(config) 
 {
+    // 读取配置参数
     uint32_t nr_thread = config.nr_thread;
     std::string device_type = config.device_type;
+
+
+    // 创建算子调用接口类
     if (device_type == "CPU" || device_type == "cpu") {
-#if INFER_X86
         m_device = make_unique<CPUDevice>(KernelType::X86, nr_thread);
-#elif INFER_ARM
-        m_device = make_unique<CPUDevice>(KernelType::Arm, nr_thread);
-#else
-        m_device = make_unique<CPUDevice>(KernelType::Naive, nr_thread);
-#endif
     } 
     else if (
             device_type == "GPU" || device_type == "CUDA" || device_type == "gpu") {
@@ -36,28 +34,37 @@ ModelImp::ModelImp(const ModelConfig& config, const std::string& name)
 #endif
     }
 
+    // 创建计算图
     UserConfig user_config;
     user_config.compt_type = dtype_from_str(config.compt_type);
     m_graph = Graph::make_graph(user_config, m_device.get(), name);
+
+
     m_past = 0; 
 
+    // 创建词表
     m_vocab = std::make_shared<Vocab>();
 }
 
+/* ---------------------------------- 模型加载及初始化 ---------------------------------- */
 
 // 加载模型
 void ModelImp::load(const std::string& model_path) {
     
-    // 在构造中打开文件，通过文件内指针获取模型文件大小
+    // 用类管理模型文件
     std::shared_ptr<InputFile> fin = std::make_shared<InputFile>(model_path, m_config.enable_mmap);
 
     m_param.n_ctx = m_config.nr_ctx;
+
+    // 使用计算图加载参数
     m_graph->load(fin, m_param, m_vocab);
-    m_logist.resize(m_param.n_vocab);
+
+    // 给存储每个词出现概率的数组分配大小，等于词表的大小，因为每个词都要有概率
+    m_logist.resize(m_param.n_vocab);  
 }
 
 
-// 主要是给一些成员变量赋值，不重要
+// 进一步初始化（参数设置）
 void ModelImp::init(uint32_t top_k, float top_p, float temp, float repeat_penalty, int repeat_last_n, int32_t seed, int32_t end_token) {
     m_top_k = top_k;
     m_top_p = top_p;
@@ -167,12 +174,18 @@ std::vector<Vocab::Id> ModelImp::tokenize(const std::string& text, bool bos) {
 //! decode the user input sentence
 std::string ModelImp::decode_iter(int& token) {
     auto start = m_timer.get_time();
+
     m_graph->execute({m_pre_token}, m_logist, m_past);
+
     auto end = m_timer.get_time();
     m_time_cost += end - start;
+
+
     sample_and_update();
+
     m_past++;   // 在补全阶段，一次处理一个 token
     token = m_pre_token;
+
     return m_vocab->id_to_token[m_pre_token].tok;
 }
 

@@ -63,6 +63,7 @@ void ChatGLMGraph::load_param(
 void ChatGLMGraph::construct_llm() {
     m_input = std::make_shared<Tensor>(device(), name() + ":input");
     std::shared_ptr<Tensor> input = m_input;
+    
     //! embd
     input = add_module<EmbdModule>(
             this, input, m_param.n_embd, m_param.n_vocab, model_config(), device(), "");

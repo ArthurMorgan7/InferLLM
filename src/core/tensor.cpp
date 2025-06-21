@@ -79,35 +79,47 @@ TensorState Tensor::recall_data() {
     return m_state;
 }
 
+// 从文件加载数据到张量
 size_t Tensor::read_data_from_file() {
     size_t length = length_in_byte();
+    // 使用 mmap
     if (m_file->enable_mmap()) {
-        //! no unified memory, we need read data to host memory and copy to device
+        // 无统一内存时，需将数据从映射内存复制到设备内存
         if (!m_device->unified_memory()) {
             auto temp_ptr = m_file->get_mmap_data(length, m_file_offset);
             m_data = m_device->allocate(length);
             m_device->host2device_copy(m_data, temp_ptr, length);
-        } else {
+        } 
+        else {
+            // 统一内存可直接使用映射地址
             m_data = m_file->get_mmap_data(length, m_file_offset);
         }
-    } else if (m_data == nullptr) {
-        //! no unified memory, we need read data to host memory and copy to device
+    } 
+    // 使用IO
+    else if (m_data == nullptr) {
+        // 无统一内存时的处理
         if (!m_device->unified_memory()) {
             m_data = m_device->allocate(length);
             auto host_ptr = m_device->allocate_host(length);
             auto opr = this->owner_op();
+            
+            // 检查是否需要预处理权重
             if (opr->need_preprocess_weight(this)) {
                 auto host_ptr2 = m_device->allocate_host(length);
                 m_file->read_data(host_ptr2, length, m_file_offset);
                 auto shape = opr->preprocess_weight(this, host_ptr2, host_ptr);
                 set_shape(shape);
                 m_device->free_host(host_ptr2);
-            } else {
+            } 
+            
+            else {
                 m_file->read_data(host_ptr, length, m_file_offset);
             }
             m_device->host2device_copy(m_data, host_ptr, length);
             m_device->free_host(host_ptr);
-        } else {
+        } 
+        // 统一内存时的处理
+        else {
             m_data = m_device->allocate(length);
             auto opr = this->owner_op();
             if (opr->need_preprocess_weight(this)) {
@@ -124,32 +136,6 @@ size_t Tensor::read_data_from_file() {
     return length;
 }
 
-void Tensor::preprocess_data() {
-    size_t length = length_in_byte();
-    INFER_ASSERT(m_data, "m_data should be not null when preprocess data.");
-    //! no unified memory, we need read data to host memory and copy to device
-    auto opr = this->owner_op();
-    if (!m_device->unified_memory()) {
-        if (opr->need_preprocess_weight(this)) {
-            auto host_src = m_device->allocate_host(length);
-            auto host_dst = m_device->allocate_host(length);
-            m_device->device2host_copy(host_src, m_data, length);
-            auto shape = opr->preprocess_weight(this, host_src, host_dst);
-            m_device->host2device_copy(m_data, host_dst, length);
-            set_shape(shape);
-            m_device->free_host(host_src);
-            m_device->free_host(host_dst);
-        }
-    } else {
-        if (opr->need_preprocess_weight(this)) {
-            void* new_data = m_device->allocate(length);
-            auto shape = opr->preprocess_weight(this, m_data, new_data);
-            set_shape(shape);
-            m_device->free_device(m_data);
-            m_data = new_data;
-        }
-    }
-}
 
 void Tensor::set_shared_memory(void* data, size_t size) {
     INFER_ASSERT(
@@ -176,6 +162,7 @@ void Tensor::set_shape(std::vector<size_t> shape, DType dtype) {
     set_shape(shape);
     set_dtype(dtype);
 }
+
 void Tensor::set_file(std::shared_ptr<InputFile> file, size_t offset) {
     m_state = TensorState::OutSide;
     m_file = file;
@@ -194,25 +181,26 @@ Tensor::~Tensor() {
 }
 
 
-
     // 增加引用计数
-    int32_t Tensor::add_user() {
-        m_usr_count++;
-        return m_usr_count;
-    }
-    // 恢复使用者计数到初始值
-    int32_t Tensor::resume_user_count() {
-        m_cur_count = m_usr_count;
-        return m_cur_count;
-    }
-    // 减少引用计数
-    int32_t Tensor::decrease_curr_user_count() {
-        if (!m_shared) {
-            INFER_ASSERT(m_cur_count > 0, "The user count is less than 0.");
-            m_cur_count--;
-            if (m_cur_count == 0) {
-                recall_data();  // 释放数据
-            }
+int32_t Tensor::add_user() {
+    m_usr_count++;
+    return m_usr_count;
+}
+// 恢复使用者计数到初始值
+int32_t Tensor::resume_user_count() {
+    m_cur_count = m_usr_count;
+    return m_cur_count;
+}
+
+
+// 减少引用计数
+int32_t Tensor::decrease_curr_user_count() {
+    if (!m_shared) {
+        INFER_ASSERT(m_cur_count > 0, "The user count is less than 0.");
+        m_cur_count--;
+        if (m_cur_count == 0) {
+            recall_data();  // 释放数据
         }
-        return m_cur_count;
-    };
+    }
+    return m_cur_count;
+};

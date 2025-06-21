@@ -26,17 +26,14 @@ namespace inferllm {
 class Kernel {
 public:
     Kernel(KernelType kernel_type) 
-        : m_kernel_type(kernel_type) {}
+        : m_kernel_type(kernel_type) 
+    {}
 
     
     Kernel(KernelType kernel_type, ThreadPool* thread_pool)
         : m_kernel_type(kernel_type)
         , m_thread_pool(thread_pool) 
-    {
-#ifdef INFER_RVV
-        opt::init();
-#endif
-    }
+    {}
 
     uint32_t nr_thread() const {
         if (m_thread_pool == nullptr)
@@ -88,7 +85,7 @@ public:
 public:
     ThreadPool* m_thread_pool = nullptr;
     KernelType m_kernel_type;
-#if ENABLE_GPU
+#if ENABLE_GPU 
     void set_handle(cudaHandle* handle) { m_handle = handle; }
     cudaHandle* m_handle;
 #endif

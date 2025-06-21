@@ -112,8 +112,7 @@ TaskSet llm_rms_norm_compute_float(
     return TaskSet{{task, seq_len}};
 }
 
-TaskSet llm_softmax_compute_float(
-        const float* src, float* dst, uint32_t len_row, uint32_t col) {
+TaskSet llm_softmax_compute_float(const float* src, float* dst, uint32_t len_row, uint32_t col) {
     auto task = [=](const TaskId& id) {
         for (uint32_t row = id.start; row < id.end; row++) {
             const float* psrc = src + row * col;

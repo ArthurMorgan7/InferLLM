@@ -32,14 +32,22 @@ void OprModuleBase::deduce_output_shape() {
     }
 }
 
+
 void OprModuleBase::execute(WorkSpace* workspace, uint32_t nr_past, bool) {
     for (auto opr : m_oprs) {
+
+
         opr->pre_execute();
+
 #ifdef INFER_PROFILE
         struct timeval start, end;
         gettimeofday(&start, NULL);
 #endif
-        opr->execute(workspace, nr_past);
+
+        // 执行算子
+        opr->execute(workspace, nr_past);   // 工作空间指针 + 已处理的序列长度
+
+
 
 #ifdef INFER_PROFILE
         gettimeofday(&end, NULL);
@@ -47,7 +55,11 @@ void OprModuleBase::execute(WorkSpace* workspace, uint32_t nr_past, bool) {
         float micros = (seconds * 1000) + (float)(end.tv_usec - start.tv_usec) / 1000;
         printf("Op %s spent time %f ms\n", opr->name().c_str(), micros);
 #endif
+
+
         opr->end_execute();
+
+
     }
 }
 
@@ -55,6 +67,7 @@ size_t OprModuleBase::get_workspace_in_byte() {
     size_t max_workspace = 0;
     for (auto opr : m_oprs) {
         size_t workspace = opr->get_workspace_in_byte();
+        // 取最大值
         max_workspace = max_workspace < workspace ? workspace : max_workspace;
     }
     return max_workspace;

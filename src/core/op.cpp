@@ -42,10 +42,10 @@ Embedding::Embedding(OpIOs inputs, uint32_t embd, uint32_t vocab, DType compt_ty
     , m_vocab(vocab)
     , m_comp_type(compt_type) 
 {
-    // 创建输出张量，并绑定到该算子
+    // 创建并管理自己的输出，
     add_outputs(std::make_shared<Tensor>(device, name + "_out0"));
     
-    // 创建 Embedding 权重
+    // 创建并管理 Embedding 权重
     auto embeddings = std::make_shared<Tensor>(device, name + ".weight");   // 权重 Tensor
     std::vector<size_t> shape = {(size_t)vocab, (size_t)embd};  // 设置大小
     embeddings->set_shape(shape);   
@@ -456,8 +456,7 @@ bool AttentionBase::need_preprocess_weight(Tensor* weight) {
     bool int4 = weight->dtype() == DType::Int4;
     size_t M = weight->shape()[0];
     bool right_weight = false;
-    bool optimized =
-            kernel->supported_optimization(KernelOptMethod::MatmulInt4Reorder);
+    bool optimized = kernel->supported_optimization(KernelOptMethod::MatmulInt4Reorder);
     //! only when the weight is int4
     if (m_fused_weights) {
         right_weight = weight->name() == weights()[0]->name();
@@ -1079,6 +1078,7 @@ void SoftMax::execute(WorkSpace*, uint32_t) {
     if (output->dtype() == DType::Float32) {
         float* src = input->ptr<float>();
         float* dst = output->ptr<float>();
+        // 利用模板的偏特化选择不同的算子实现
         kernel->operator()<KernelID::SoftmaxFloat>(src, dst, seq_len, embd);
     } else {
         //! fp16
