@@ -92,13 +92,17 @@ void ThreadPool::add_task(const MultiThreadingTask& task, uint32_t nr_task) {
         return;
     } 
     else {
+        // 唤醒线程池
+        active();
+        INFER_ASSERT(m_active, "thread pool is not actived.");
+
         //! Set the task number, task iter and task
         m_nr_task = nr_task;
         m_task_per_thread = (nr_task + m_nr_threads - 1) / m_nr_threads;
 
-        // 唤醒线程池
-        active();
-        INFER_ASSERT(m_active, "thread pool is not actived.");
+        m_task = std::move(task);
+
+
         for (uint32_t i = 0; i < m_nr_threads - 1; i++) {
             // work_flag 为 true，表明任务需要被处理
             m_workers[i]->work_flag.store(true, std::memory_order_release);
@@ -106,7 +110,6 @@ void ThreadPool::add_task(const MultiThreadingTask& task, uint32_t nr_task) {
 
         // 主线程也需要工作，这是计算主线程的 start
         uint32_t start = (m_nr_threads - 1) * m_task_per_thread;
-        m_task = std::move(task);
         m_task({start, nr_task, m_nr_threads - 1});
 
 

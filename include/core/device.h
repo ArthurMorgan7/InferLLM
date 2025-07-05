@@ -147,7 +147,8 @@ public:
     void sync() override { CUDA_CHECK(cudaStreamSynchronize(m_handle.stream)); }
 
     bool unified_memory() override { return false; }
-
+private:
+    cudaHandle m_handle;
 
 };
 

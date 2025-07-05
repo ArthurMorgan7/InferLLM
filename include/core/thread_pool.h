@@ -76,6 +76,7 @@ private:
     std::condition_variable m_cv;       // 条件变量
     std::mutex m_mutex;                 // 互斥量
 
+public:
     //! The number of iterations < main thread yeild resource>
     static constexpr int MAIN_THREAD_ACTIVE_WAIT = 10000;
     //! The number of iterations < worker thread yeild resource>
@@ -83,8 +84,6 @@ private:
     //! The number of iterations <pause>
     static constexpr int ACTIVE_WAIT_PAUSE_LIMIT = 16;
 
-
-public:
     // 在构造函数中创建线程，来启动线程池
     ThreadPool(uint32_t nr_threads);
     
@@ -100,7 +99,6 @@ public:
     // 获取线程池的线程数量
     uint32_t nr_threads() const { return m_nr_threads; }
 
-private:
     inline void sync();
     //! wake up all the threads from cv.wait(), when the thread pool is not
     //! active, all the threads will go to sleep.
