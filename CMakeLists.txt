@@ -30,11 +30,11 @@ target_include_directories(InferLLM PUBLIC include src)
 
 
 # 生成可执行文件
-add_executable(chatglm app/chatglm/chatglm.cpp)
+add_executable(chatglm app/chatglm.cpp)
 target_link_libraries(chatglm InferLLM)
 
-add_executable(quantizer app/quantizer.cpp)
-target_link_libraries(quantizer InferLLM)
+# add_executable(quantizer app/quantizer.cpp)
+# target_link_libraries(quantizer InferLLM)
 
 
 # if(ENABLE_TEST)
