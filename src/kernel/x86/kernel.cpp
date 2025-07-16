@@ -1,6 +1,6 @@
 #include <assert.h>
-#include "math.h"
-#include "string.h"
+#include <math.h>
+#include <string.h>
 #include "utils.h"
 
 #include "core/tensor.h"

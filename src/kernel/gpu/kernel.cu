@@ -10,8 +10,8 @@
 #include "core/tensor.h"
 #include "kernel/kernel.h"
 #include "kernel_gpu.h"
-#include "math.h"
-#include "string.h"
+#include <math.h>
+#include <string.h>
 #include "utils.h"
 
 namespace inferllm {

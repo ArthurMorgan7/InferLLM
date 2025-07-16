@@ -1,9 +1,11 @@
-#include <assert.h>
-#include "core/tensor.h"
-#include "kernel/kernel.h"
-#include "math.h"
-#include "string.h"
+#include "tensor.h"
 #include "utils.h"
+#include "cpu/kernel.h"
+
+#include <math.h>
+#include <string.h>
+#include <assert.h>
+
 
 namespace inferllm {
 namespace naive {

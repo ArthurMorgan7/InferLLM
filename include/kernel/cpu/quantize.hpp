@@ -1,8 +1,8 @@
 #pragma once
 #include <assert.h>
 #include "kernel_define.h"
-#include "math.h"
-#include "string.h"
+#include <math.h>
+#include <string.h>
 
 namespace inferllm {
 namespace naive {
