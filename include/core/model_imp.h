@@ -7,7 +7,7 @@
 
 #include "device.h"
 #include "graph.h"
-#include "kern/kernel_define.h"
+#include "kernel/kernel_define.h"
 #include "model.h"
 
 namespace inferllm {

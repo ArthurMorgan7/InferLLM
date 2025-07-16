@@ -8,7 +8,7 @@
 // #define ENABLE_GPU 0
 
 #include "core/tensor.h"
-#include "kern/kernel.h"
+#include "kernel/kernel.h"
 #include "kernel_gpu.h"
 #include "math.h"
 #include "string.h"

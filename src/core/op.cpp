@@ -1,6 +1,6 @@
 #include "op.h"
-#include "kern/kernel.h"
-#include "kern/naive/naive.h"
+#include "kernel.h"
+#include "cpu/kernel.h"
 
 #include <fstream>
 #include <iostream>

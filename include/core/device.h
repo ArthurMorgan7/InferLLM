@@ -3,7 +3,7 @@
 #include <functional>
 #include <map>
 
-#include "kern/kernel.h"
+#include "kernel/kernel.h"
 #include "thread_pool.h"
 #include "utils.h"
 

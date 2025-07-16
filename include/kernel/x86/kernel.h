@@ -1,6 +1,6 @@
 #pragma once
 
-#include "naive/naive.h"
+#include "cpu/kernel.h"
 #include <math.h>
 #include <string.h>
 

@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-#include "kern/kernel_define.h"
+#include "kernel/kernel_define.h"
 #include "utils.h"
 
 // clang-format off

@@ -1,5 +1,5 @@
 #include "tensor.h"
-#include "../kern/kernel_define.h"
+#include "../kernel/kernel_define.h"
 #include "memory.h"
 #include "utils.h"
 #include "op.h"

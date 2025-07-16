@@ -8,17 +8,17 @@
 #include "utils.h"
 
 #if INFER_X86
-#include "kern/optimized/x86/kernel.h"
+#include "kernel/optimized/x86/kernel.h"
 #elif INFER_ARM
-#include "kern/optimized/arm/kernel.h"
+#include "kernel/optimized/arm/kernel.h"
 #elif INFER_RVV
-#include "kern/optimized/rvv/kernel.h"
+#include "kernel/optimized/rvv/kernel.h"
 #else
-#include "kern/naive/naive.h"
+#include "kernel/cpu/kernel.h"
 #endif
 
 #ifdef ENABLE_GPU
-#include "kern/gpu/kernel_gpu.h"
+#include "kernel/gpu/kernel_gpu.h"
 #endif
 
 namespace inferllm {

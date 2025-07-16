@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 # add_definitions(-DINFER_PROFILE) # 是否开始Debug输出
 
 # 收集源文件
-file(GLOB_RECURSE SRC src/*.cpp src/*.h src/*.hpp)
+file(GLOB_RECURSE SRC src/*.cpp src/*.h include/*.hpp)
 
 # 构建静态库
 add_library(InferLLM STATIC ${SRC} ${PLTSRC})
@@ -22,7 +22,7 @@ include_directories(
     include/common
     include/core
     include/graph
-    include/kern
+    include/kernel
 )
 
 # 使用该库时头文件的搜索路径，之后就不需要给可执行文件添加搜索路径了
