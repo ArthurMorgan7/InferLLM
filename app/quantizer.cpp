@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "kern/kernel_define.h"
-#include "kern/naive/quantize.h"
+#include "kernel_define.h"
+#include "naive/quantize.hpp"
 
 using namespace inferllm;
 static float table_f32_f16[1 << 16];

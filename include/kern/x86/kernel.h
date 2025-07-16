@@ -1,8 +1,8 @@
 #pragma once
 
-#include "kern/naive/naive.h"
-#include "math.h"
-#include "string.h"
+#include "naive/naive.h"
+#include <math.h>
+#include <string.h>
 
 namespace inferllm {
 namespace opt {

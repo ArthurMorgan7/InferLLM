@@ -1,9 +1,9 @@
 #pragma once
 
-#include "kern/kernel_define.h"
-#include "kern/naive/quantize.h"
-#include "math.h"
-#include "string.h"
+#include "kernel_define.h"
+#include "quantize.hpp"
+#include <math.h>
+#include <string.h>
 
 namespace inferllm {
 namespace naive {

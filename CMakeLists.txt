@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 # add_definitions(-DINFER_PROFILE) # 是否开始Debug输出
 
 # 收集源文件
-file(GLOB_RECURSE SRC src/*.cpp src/*.h)
+file(GLOB_RECURSE SRC src/*.cpp src/*.h src/*.hpp)
 
 # 构建静态库
 add_library(InferLLM STATIC ${SRC} ${PLTSRC})

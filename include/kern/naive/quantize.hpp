@@ -1,6 +1,6 @@
 #pragma once
 #include <assert.h>
-#include "kern/kernel_define.h"
+#include "kernel_define.h"
 #include "math.h"
 #include "string.h"
 

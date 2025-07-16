@@ -4,9 +4,9 @@
 #include "utils.h"
 
 #include "core/tensor.h"
-#include "kernel.h"
-#include "optimized.h"
-#include "quantize.h"
+#include "x86/kernel.h"
+#include "x86/quantize.hpp"
+#include "x86/optimized.hpp"
 
 using namespace inferllm;
 

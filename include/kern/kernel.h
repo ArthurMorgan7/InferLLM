@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "core/thread_pool.h"
-#include "kern/kernel_define.h"
+#include "thread_pool.h"
+#include "kernel_define.h"
 #include "utils.h"
 
 #if INFER_X86
