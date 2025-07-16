@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-#include <map>
 
 #include "kernel/kernel.h"
 #include "thread_pool.h"
@@ -14,6 +12,10 @@
 #include <curand.h>
 #include <driver_types.h>
 #endif
+#include <functional>
+#include <map>
+
+
 
 namespace inferllm {
 

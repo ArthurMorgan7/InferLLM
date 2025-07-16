@@ -4,7 +4,7 @@
 #include "kvstorage.h"
 #include "op.h"
 #include "tensor.h"
-#include "kernel/kernel_define.h"
+#include "kernel_define.h"
 
 namespace inferllm {
 

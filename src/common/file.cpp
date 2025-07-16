@@ -1,5 +1,4 @@
 #include "file.h"
-#include <string.h>
 #include "utils.h"
 
 using namespace inferllm;

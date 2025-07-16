@@ -1,7 +1,9 @@
 
 #include "device.h"
 #include "tensor.h"
+
 #include <malloc.h>
+
 
 #define ALIGN_SIZE (32)
 

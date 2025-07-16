@@ -1,14 +1,14 @@
 #pragma once
 
+#include "device.h"
+#include "graph.h"
+#include "kernel_define.h"
+#include "model.h"
+
 #include <list>
 #include <map>
 #include <memory>
 #include <string>
-
-#include "device.h"
-#include "graph.h"
-#include "kernel/kernel_define.h"
-#include "model.h"
 
 namespace inferllm {
 

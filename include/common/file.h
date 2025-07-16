@@ -4,16 +4,9 @@
 #include <cstdio>
 #include <string>
 
-// #ifdef __has_include
 #include <unistd.h>
-// #if defined(_POSIX_MAPPED_FILES)
 #include <sys/mman.h>
-// #endif
-// #if defined(_POSIX_MEMLOCK_RANGE)
-// #include <sys/resource.h>
-// #endif
-// #endif
-// #endif
+
 
 namespace inferllm {
 

@@ -1,4 +1,8 @@
 #pragma once
+
+#include "kernel_define.h"
+#include "utils.h"
+
 #include <atomic>
 #include <condition_variable>
 #include <functional>
@@ -7,8 +11,6 @@
 #include <thread>
 #include <vector>
 
-#include "kernel/kernel_define.h"
-#include "utils.h"
 
 // clang-format off
 #ifndef INFER_PAUSE
