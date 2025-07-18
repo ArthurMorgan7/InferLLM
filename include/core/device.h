@@ -69,13 +69,7 @@ protected:
 
 class CPUDevice : public Device {
 public:
-    CPUDevice(KernelType type, uint32_t nr_thread) 
-        : Device() 
-    {
-        // 对于CPU设备，重点在于创建线程池
-        m_thread_pool = make_unique<ThreadPool>(nr_thread);
-        m_kernel = make_unique<Kernel>(type, m_thread_pool.get());
-    }
+    CPUDevice(KernelType type, uint32_t nr_thread);
 
     void* allocate(size_t len) override;
     void* allocate_host(size_t len) override;

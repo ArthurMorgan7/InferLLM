@@ -1,0 +1,3 @@
+./chatglm -m chatglm2-q4.bin -t 16 -v 2
+
+./chatglm -m chatglm2-q4.bin -t 16 -v 2 -g GPU

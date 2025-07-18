@@ -1,4 +1,3 @@
-
 #include "device.h"
 #include "tensor.h"
 
@@ -73,6 +72,23 @@ void CPUDevice::free_device(void* ptr) {
     size_t len = m_alloc_memory[ptr];
     m_free_memory[len].push_back(ptr);
 #endif
+}
+
+CPUDevice::CPUDevice(KernelType type, uint32_t nr_thread) 
+    : Device() 
+{
+    // 对于CPU设备，重点在于创建线程池
+    // 优化：使用优化的线程池配置
+    ThreadPoolConfig config;
+    config.enable_thread_affinity = true;
+    config.enable_dynamic_load_balancing = true;
+    config.spin_wait_cycles = 8;
+    config.max_active_wait = 1000;
+    config.task_batch_size = 64;
+    config.enable_cache_line_alignment = true;
+    
+    m_thread_pool = make_unique<ThreadPool>(nr_thread, config);
+    m_kernel = make_unique<Kernel>(type, m_thread_pool.get());
 }
 
 CPUDevice::~CPUDevice() {
