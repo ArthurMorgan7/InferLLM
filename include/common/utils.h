@@ -3,6 +3,7 @@
 #pragma once
 
 #include "file.h"
+#include "vocab.h"
 
 #include <chrono>
 #include <fstream>
@@ -16,71 +17,6 @@
 
 
 namespace inferllm {
-
-template <typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&&... args) {
-    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
-
-//
-// Vocab utils
-//
-
-//! the tokenizer vocabulary
-/* -------------------------------------------------------------------------- */
-/*                       管理词和编号之间的映射关系                                */
-/* -------------------------------------------------------------------------- */
-class Vocab {
-public:
-    // 内部类型
-    using Id = int32_t;         // 编号
-    using Token = std::string;  // 词
-    struct TokenScore {
-        Token tok;      // string
-        float score;    // 得分
-    };                          // 词分数
-
-    void load_vocab(std::shared_ptr<InputFile> fs, size_t size) {
-        id_to_token.resize(size);
-        std::string word;
-        for (size_t i = 0; i < size; i++) {
-            float score = 0;
-            uint32_t len;
-            fs->read_raw((char*)&len, sizeof(len));
-            word.resize(len);
-            fs->read_raw((char*)word.data(), len);
-
-            token_to_id[word] = i;
-            id_to_token[i].tok = word;
-            id_to_token[i].score = score;
-        }
-    }
-
-    void load_vocab_with_score(std::shared_ptr<InputFile> fs, size_t size) {
-        id_to_token.resize(size);
-        std::string word;
-        for (size_t i = 0; i < size; i++) {
-            float score = 0;
-            uint32_t len;
-            fs->read_raw((char*)&len, sizeof(len));
-            word.resize(len);
-            fs->read_raw((char*)word.data(), len);
-            fs->read_raw((char*)&score, sizeof(score));
-
-            token_to_id[word] = i;
-            id_to_token[i].tok = word;
-            id_to_token[i].score = score;
-        }
-    }
-
-    Id map_to_id(const Token& str) { return token_to_id[str]; }
-
-    Token unmap_to_token(Id id) { return id_to_token[id].tok; }
-
-    std::map<Token, Id> token_to_id;        // 词 → 编号
-    std::vector<TokenScore> id_to_token;    // 编号 → 得分
-};
-
 class Timer {
     using Time = std::chrono::high_resolution_clock;
     using ms = std::chrono::milliseconds;
@@ -112,7 +48,7 @@ void sample_top_k(std::vector<std::pair<double, Vocab::Id>>& logits_id, int top_
 
 std::string format(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
-}  // namespace inferllm
+};  // namespace inferllm
 
 //! branch prediction hint: likely to take
 #define infer_likely(v) __builtin_expect(static_cast<bool>(v), 1)

@@ -1,22 +1,16 @@
-cmake_minimum_required(VERSION 3.15.2)
+cmake_minimum_required(VERSION 3.18)
 
-project(InferLLM LANGUAGES C CXX ASM)
+project(InferLLM LANGUAGES C CXX CUDA ASM)
 
-set(CMAKE_CXX_FLAGS " -std=c++11 -pthread -Wno-multichar -fPIC ${CMAKE_CXX_FLAGS}")
+option(ENABLE_GPU "Build with GPU." ON)
+
+set(CMAKE_CXX_FLAGS " -std=c++14 -pthread -Wno-multichar -fPIC ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS " -g -O0 ${CMAKE_CXX_FLAGS}")
-# set(CMAKE_CXX_FLAGS " -O3 -g ${CMAKE_CXX_FLAGS}")
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+set(CMAKE_CUDA_ARCHITECTURES 75)
 
-
-# 添加预定义宏，管理条件编译代码
-# add_definitions(-DINFER_PROFILE) # 是否开始Debug输出
-
-# 收集源文件
 file(GLOB_RECURSE SRC src/*.cpp src/*.h include/*.hpp)
-
-# 构建静态库
-add_library(InferLLM STATIC ${SRC} ${PLTSRC})
+add_library(InferLLM STATIC ${SRC})
 
 include_directories(
     include/common
@@ -25,28 +19,27 @@ include_directories(
     include/kernel
 )
 
-# 使用该库时头文件的搜索路径，之后就不需要给可执行文件添加搜索路径了
 target_include_directories(InferLLM PUBLIC include src)
 
+if(ENABLE_GPU)
+    add_definitions(-DENABLE_GPU=1)
+    find_package(CUDA REQUIRED)
+    include_directories(${CUDA_INCLUDE_DIRS})
 
-# 生成可执行文件
+    file(GLOB_RECURSE GPU_SRC src/kernel/gpu/*.cu src/kernel/gpu/*.h)
+    add_library(InferLLMGPU STATIC ${GPU_SRC})
+    target_include_directories(InferLLMGPU PUBLIC include src ${CUDA_CUBLAS_INCLUDE_DIRS})
+    target_link_libraries(InferLLMGPU ${CUDA_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+    set_target_properties(InferLLMGPU PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
+
 add_executable(chatglm app/chatglm.cpp)
 target_link_libraries(chatglm InferLLM)
 
-# add_executable(quantizer app/quantizer.cpp)
-# target_link_libraries(quantizer InferLLM)
-
-
-# if(ENABLE_TEST)
-#   message(STATUS "Build with TEST.")
-#   add_subdirectory(third-party/googletest ${CMAKE_CURRENT_BINARY_DIR}/googletest EXCLUDE_FROM_ALL)
-
-#   file(GLOB TEST_SRC test/*.cpp test/CPU/*.cpp test/CPU/*.h)
-#   if(ENABLE_GPU)
-#     file(GLOB_RECURSE GPU_TEST_SRC test/GPU/*.cpp test/GPU/*.h)
-#     list(APPEND TEST_SRC ${GPU_TEST_SRC})
-#   endif()
-#   add_executable(InferLLMTest ${TEST_SRC})
-#   target_include_directories(InferLLMTest PUBLIC test inlude src)
-#   target_link_libraries(InferLLMTest InferLLM gtest)
-# endif()
+if(ENABLE_GPU)
+    target_sources(chatglm PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/kernel/gpu/kernel.cu
+    )
+    target_link_libraries(InferLLM InferLLMGPU)
+    target_link_libraries(chatglm InferLLMGPU)
+endif()

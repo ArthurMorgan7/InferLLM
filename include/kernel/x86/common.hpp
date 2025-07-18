@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <immintrin.h>
 #include "core/tensor.h"
-#include "kernel_define.h"
 
 namespace inferllm {
 namespace opt {

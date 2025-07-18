@@ -1,8 +1,8 @@
 #pragma once
 
-#include "cpu/kernel.h"
 #include <math.h>
 #include <string.h>
+#include "cpu/kernel.h"
 
 namespace inferllm {
 namespace opt {

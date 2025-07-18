@@ -110,16 +110,22 @@ void* GPUDevice::allocate(size_t len) {
     auto it = m_free_memory.lower_bound(len);
     void* ptr = nullptr;
 
-    if (it != m_free_memory.end() && it->second.size() > 0) {
+    if (it != m_free_memory.end() && !it->second.empty()) {
         ptr = it->second.back();
         it->second.pop_back();
-        if (it->second.size() < 1) {
+        if (it->second.empty()) {
             m_free_memory.erase(it);
         }
     } else {
-        CUDA_CHECK(cudaMalloc(&ptr, len));
+        cudaError_t err = cudaMalloc(&ptr, len);
+        if (err != cudaSuccess) {
+            std::cerr << "[GPUDevice::allocate] Failed to allocate " << len 
+                      << " bytes on GPU. CUDA error: " << cudaGetErrorString(err) << std::endl;
+            throw std::runtime_error("cudaMalloc failed");
+        }
         m_alloc_memory[ptr] = len;
     }
+
     return ptr;
 }
 

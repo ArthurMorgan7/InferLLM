@@ -6,20 +6,14 @@
 #include "thread_pool.h"
 #include "kernel_define.h"
 #include "utils.h"
+#include "x86/kernel.h"
 
-#if INFER_X86
-#include "kernel/optimized/x86/kernel.h"
-#elif INFER_ARM
-#include "kernel/optimized/arm/kernel.h"
-#elif INFER_RVV
-#include "kernel/optimized/rvv/kernel.h"
-#else
-#include "kernel/cpu/kernel.h"
-#endif
 
 #ifdef ENABLE_GPU
-#include "kernel/gpu/kernel_gpu.h"
+#include "gpu/kernel.h"
 #endif
+
+#include "kernel_define.h"
 
 namespace inferllm {
 

@@ -18,35 +18,32 @@ using namespace std;
 
 struct app_params {
     // 基础配置参数
-    int32_t seed = -1;  // TODO 具体怎么使用？ 随机数种子，确保每次生成不同的输出 
-    int32_t n_threads = std::min(4, (int32_t)std::thread::hardware_concurrency());  // 推理时最多使用的线程数
-    int32_t n_predict = 128;     // 要生成的 token 数量
+    int32_t seed = -1;           // TODO 具体怎么使用？ 随机数种子，确保每次生成不同的输出 
+    int32_t n_threads = 1;       // CPU推理时使用的线程数
     int32_t repeat_last_n = 64;  // 重复惩罚机制中考虑的“最近 N 个 token”。用于控制模型避免重复。
     int32_t n_ctx = 2048;        // 上下文窗口大小
 
     // 采样相关参数
     int32_t top_k = 40;             // Top-K 采样：只从概率前 K 个候选中采样，K 越小越保守
     float top_p = 0.95f;            // Top-P（nucleus）采样：从概率总和累积到 p（如 0.95）的一组 token 中采样。更灵活。
-    float temp = 0.10f;             // 控制采样分布的随机性。越小越确定（0 接近贪婪），越大越多样化。
-    float repeat_penalty = 1.30f;   // 重复惩罚系数：用于降低模型输出重复词语的概率。值大于 1 时惩罚更强。
+    float temp = 0.10f;             // 温度，用于控制生成结果的随机性。
+    float repeat_penalty = 1.30f;   // 重复惩罚系数，降低模型输出重复词语的概率
 
     // 模型加载参数
     std::string model;              // 模型路径
-    bool use_color = true;          // 终端输出是否带颜色
     bool use_mmap = false;          // 是否使用 mmap 映射模型文件到内存
     std::string dtype = "float32";  // 指定推理时使用的数据类型
-    std::string device = "cpu";     // 指定运行设备
+    std::string device = "cpu";     // 指定运行设备，默认CPU
     int32_t version = 1;            // 模型版本号
 };
 
-// 打印二进制文件的用户手册
+// -h时的用户手册
 void app_print_usage(int argc, char** argv, const app_params& params) {
     // clang-format off
     fprintf(stderr, "usage: %s [options]\n", argv[0]);
     fprintf(stderr, "\n");
     fprintf(stderr, "options:\n");
     fprintf(stderr, "  -h, --help            show this help message and exit\n");
-    fprintf(stderr, "  --color               colorise output to distinguish prompt and user input from generations\n");
     fprintf(stderr, "  -s SEED, --seed SEED  RNG seed (default: -1)\n");
     fprintf(stderr, "  -t N, --threads N     number of threads to use during computation (default: %d)\n", params.n_threads);
     fprintf(stderr, "  --top_k N             top-k sampling (default: %d)\n", params.top_k);
@@ -101,9 +98,6 @@ bool app_params_parse(int argc, char** argv, app_params& params) {
         else if (arg == "-m" || arg == "--model") {
             params.model = argv[++i];
         } 
-        else if (arg == "--color") {
-            params.use_color = true;
-        } 
         else if (arg == "--mmap") {
             params.use_mmap = true;
         } 
@@ -156,6 +150,7 @@ void fix_word(std::string& word) {
     }
 }
 
+// 处理输入
 void readInput(string &user_input){
     bool another_line = true;
     while (another_line) {
@@ -264,7 +259,7 @@ int main(int argc, char** argv) {
     bool is_interacting = true;     // True: 输入用户问题   False：输出模型响应
     std::string user_input, output; // 输入输出的字符串
     int iter = 0;       // 轮次编号
-    int token_id = 0;   // 当前轮输出的 token 计数
+    int token_id = 0;   // 已经输出的总token数
     bool flag = true;   // 切换标志
     // int last_token;
     // 直到模型剩余的 token 用完才结束
@@ -295,17 +290,23 @@ int main(int argc, char** argv) {
         else{
             // 根据上一个 token 推导下一个 token，得到对应的字符串
             int token;
-            string o = model->decode_iter(token);   // 🌟
+            string one_token_str = model->decode_iter(token);   // 🌟
             
             // 处理输出并显示
-            fix_word(o);
-            printf("%s", o.c_str());
+            fix_word(one_token_str);
+            printf("%s", one_token_str.c_str());
             fflush(stdout);
             token_id++;
             iter++;
-
+            
+            // 每10个token记录更新一次推理速度的记录
+            if (token_id % 10 == 0) {
+                running_summary = model->decode_summary();
+            }
+            
             // 输出完毕
             if (token == etoken) {
+                running_summary = model->decode_summary();
                 printf("\n");
                 flag = true;
             }

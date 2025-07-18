@@ -4,7 +4,7 @@
 #include <immintrin.h>
 #include "x86/common.hpp"
 #include "core/tensor.h"
-#include "kernel_define.h"
+// #include "kernel_define.h"
 
 namespace inferllm {
 namespace opt {

@@ -537,8 +537,8 @@ LlamaAttention::LlamaAttention(
 {
     m_rot = rot;
     m_rotary_mode = rotary_mode;
-    m_kstorage = make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
-    m_vstorage = make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
+    m_kstorage = std::make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
+    m_vstorage = std::make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
 }
 
 void LlamaAttention::execute(WorkSpace* workspace, uint32_t nr_past) {
@@ -703,8 +703,8 @@ GlmAttention::GlmAttention(
     : AttentionBase(device, name, inputs, embd, nr_ctx, head, layer_id, fused_weights, bias) 
 {
     m_rotary_mode = rotary_mode;
-    m_kstorage = make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
-    m_vstorage = make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
+    m_kstorage = std::make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
+    m_vstorage = std::make_unique<KvStorage>(std::vector<size_t>{nr_ctx, embd}, compt_type, device);
 }
 
 
@@ -893,10 +893,10 @@ Glm2MultiQueryAttention::Glm2MultiQueryAttention(
     set_weights(weights);
 
     uint32_t sub_dim = embd / head;
-    m_kstorage = make_unique<KvStorage>(
+    m_kstorage = std::make_unique<KvStorage>(
             std::vector<size_t>{nr_ctx, sub_dim * query_group_num}, compt_type,
             device);
-    m_vstorage = make_unique<KvStorage>(
+    m_vstorage = std::make_unique<KvStorage>(
             std::vector<size_t>{nr_ctx, sub_dim * query_group_num}, compt_type,
             device);
 }

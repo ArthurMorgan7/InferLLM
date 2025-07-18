@@ -8,11 +8,12 @@
 // #define ENABLE_GPU 0
 
 #include "core/tensor.h"
-#include "kernel/kernel.h"
-#include "kernel_gpu.h"
+#include "gpu/kernel.h"
+#include "kernel.h"
+#include "utils.h"
 #include <math.h>
 #include <string.h>
-#include "utils.h"
+
 
 namespace inferllm {
 namespace gpu {

@@ -1,12 +1,13 @@
-#include <assert.h>
-#include <math.h>
-#include <string.h>
 #include "utils.h"
-
 #include "core/tensor.h"
+
 #include "x86/kernel.h"
 #include "x86/quantize.hpp"
 #include "x86/optimized.hpp"
+
+#include <assert.h>
+#include <math.h>
+#include <string.h>
 
 using namespace inferllm;
 
