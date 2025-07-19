@@ -1,0 +1,317 @@
+#include "model.h"
+
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <map>
+#include <random>
+#include <string>
+#include <thread>
+#include <vector>
+#include <signal.h>
+#include <unistd.h>
+
+
+using namespace std;
+
+
+struct app_params {
+    // 基础配置参数
+    int32_t seed = -1;           // TODO 具体怎么使用？ 随机数种子，确保每次生成不同的输出 
+    int32_t n_threads = 1;       // CPU推理时使用的线程数
+    int32_t repeat_last_n = 64;  // 重复惩罚机制中考虑的“最近 N 个 token”。用于控制模型避免重复。
+    int32_t n_ctx = 2048;        // 上下文窗口大小
+
+    // 采样相关参数
+    int32_t top_k = 40;             // Top-K 采样：只从概率前 K 个候选中采样，K 越小越保守
+    float top_p = 0.95f;            // Top-P（nucleus）采样：从概率总和累积到 p（如 0.95）的一组 token 中采样。更灵活。
+    float temp = 0.10f;             // 温度，用于控制生成结果的随机性。
+    float repeat_penalty = 1.30f;   // 重复惩罚系数，降低模型输出重复词语的概率
+
+    // 模型加载参数
+    std::string model;              // 模型路径
+    bool use_mmap = false;          // 是否使用 mmap 映射模型文件到内存
+    std::string dtype = "float32";  // 指定推理时使用的数据类型
+    std::string device = "cpu";     // 指定运行设备，默认CPU
+    int32_t version = 1;            // 模型版本号
+};
+
+// -h时的用户手册
+void app_print_usage(int argc, char** argv, const app_params& params) {
+    // clang-format off
+    fprintf(stderr, "usage: %s [options]\n", argv[0]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "options:\n");
+    fprintf(stderr, "  -h, --help            show this help message and exit\n");
+    fprintf(stderr, "  -s SEED, --seed SEED  RNG seed (default: -1)\n");
+    fprintf(stderr, "  -t N, --threads N     number of threads to use during computation (default: %d)\n", params.n_threads);
+    fprintf(stderr, "  --top_k N             top-k sampling (default: %d)\n", params.top_k);
+    fprintf(stderr, "  --top_p N             top-p sampling (default: %.1f)\n", params.top_p);
+    fprintf(stderr, "  --repeat_last_n N     last n tokens to consider for penalize (default: %d)\n", params.repeat_last_n);
+    fprintf(stderr, "  --repeat_penalty N    penalize repeat sequence of tokens (default: %.1f)\n", params.repeat_penalty);
+    fprintf(stderr, "  -c N, --ctx_size N    size of the prompt context (default: %d)\n", params.n_ctx);
+    fprintf(stderr, "  --temp N              temperature (default: %.1f)\n", params.temp);
+    fprintf(stderr, "  -m FNAME, --model FNAME\n");
+    fprintf(stderr, "                        model path (default: %s)\n", params.model.c_str());
+    fprintf(stderr, "  --mmap                enable mmap when read weights, default = false\n");
+    fprintf(stderr, "  -d type               configure the compute type, default float32, can be float32 and flot16 now.\n");
+    fprintf(stderr, "  -g type               configure the compute device type, default CPU, can be CPU and GPU now.\n");
+    fprintf(stderr, "\n");
+    // clang-format on
+}
+
+// 解析命令行参数
+bool app_params_parse(int argc, char** argv, app_params& params) {
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];  // 隐式调用了类型转换构造函数
+        if (arg == "-s" || arg == "--seed") {
+            params.seed = std::stoi(argv[++i]);     // 隐式调用了类型转换构造函数
+        } 
+        else if (arg == "-t" || arg == "--threads") {
+            params.n_threads = std::stoi(argv[++i]);
+        } 
+        else if (arg == "--top_k") {
+            params.top_k = std::stoi(argv[++i]);
+        } 
+        else if (arg == "-c" || arg == "--ctx_size") {
+            params.n_ctx = std::stoi(argv[++i]);
+        } 
+        else if (arg == "-d" || arg == "--dtype") {
+            params.dtype = argv[++i];
+        } 
+        else if (arg == "-g") {
+            params.device = argv[++i];
+        } 
+        else if (arg == "--top_p") {
+            params.top_p = std::stof(argv[++i]);
+        } 
+        else if (arg == "--temp") {
+            params.temp = std::stof(argv[++i]);
+        } 
+        else if (arg == "--repeat_last_n") {
+            params.repeat_last_n = std::stoi(argv[++i]);
+        } 
+        else if (arg == "--repeat_penalty") {
+            params.repeat_penalty = std::stof(argv[++i]);
+        } 
+        else if (arg == "-m" || arg == "--model") {
+            params.model = argv[++i];
+        } 
+        else if (arg == "--mmap") {
+            params.use_mmap = true;
+        } 
+        else if (arg == "-v" || arg == "--version") {
+            params.version = std::stoi(argv[++i]);
+        } 
+        else if (arg == "-h" || arg == "--help") {
+            app_print_usage(argc, argv, params);
+            exit(0);
+        } else {
+            exit(0);
+        }
+    }
+
+    return true;
+}
+
+std::string running_summary;
+void sigint_handler(int signo) {
+    // 
+    if (signo == SIGINT) {
+        printf("\n");
+        printf("%s", running_summary.c_str());
+        exit(130);
+    }
+};
+
+
+// Llambda表达式 —— 将模型输出的一些特殊编码还原成原始字符
+void fix_word(std::string& word) {
+    auto ret = word;
+    if (word == "<n>" || word == "<n><n>")
+        word = "\n";
+    if (word == "<|tab|>")
+        word = "\t";
+    int pos = word.find("<|blank_");
+    if (pos != -1) {
+        int space_num = atoi(word.substr(8, word.size() - 10).c_str());
+        word = std::string(space_num, ' ');
+    }
+    pos = word.find("▁");
+    if (pos != -1) {
+        word.replace(pos, pos + 3, " ");
+    }
+    // Fix utf-8 garbled characters
+    if (word.length() == 6 && word[0] == '<' && word[word.length() - 1] == '>' &&
+        word[1] == '0' && word[2] == 'x') {
+        int num = std::stoi(word.substr(3, 2), nullptr, 16);
+        word = static_cast<char>(num);
+    }
+}
+
+// 处理输入
+void readInput(string &user_input){
+    bool another_line = true;
+    while (another_line) {
+        fflush(stdout);
+        std::string input;  // input 暂存用户输入
+        input.resize(256);
+        char* buf = const_cast<char*>(input.data());
+        int n_read;
+        int res = scanf("%255[^\n]%n%*c", buf, &n_read);    // 一次读取一行
+        
+
+        // 读取错误的处理
+        if (res == EOF) exit(-1);  
+        else if (res == 0) {
+            if (scanf("%*c") <= 0) {} // 读取一个字符，但不赋值给任何变量
+            n_read = 0;
+        }
+
+
+        // 读取成功且输入末尾是 '\'
+        if (n_read > 0 && buf[n_read - 1] == '\\') {
+            buf[n_read - 1] = '\n'; // 把 \\ 替换成 \n
+            // another_line = true;
+            input.resize(n_read + 1);
+        } 
+        else {
+            another_line = false;
+            input.resize(n_read);
+        }
+        user_input += input;    // 把当前行的输入拼接到整体的输入后面
+    }
+}
+
+
+int main(int argc, char** argv) {
+    /* --------------------------------- 基本参数配置 --------------------------------- */
+    // 定义一个结构体用于存储命令行参数
+    app_params params;
+
+    // 解析命令行参数
+    if (app_params_parse(argc, argv, params) == false) {
+        return 1;
+    }
+
+    if (params.seed < 0) {
+        params.seed = time(NULL);
+    }
+
+    fprintf(stderr, "%s: seed = %d\n", __func__, params.seed);
+
+    // 命令行参数 → 模型参数
+    inferllm::ModelConfig config;
+    config.compt_type = params.dtype;       // 数据类型
+    config.device_type = params.device;     // 运行设备
+    config.nr_thread = params.n_threads;    // CPU
+    config.enable_mmap = params.use_mmap;   // 是否使用 mmap
+    config.nr_ctx = params.n_ctx;           // 上下文窗口大小
+
+    std::string model_name;    // 模型名称
+    uint32_t etoken;           // 结尾字符的 token id
+    if(params.version == 1){
+        model_name = "chatglm";
+        etoken = 130005;
+    }
+    else if (params.version == 2) {
+        model_name = "chatglm2";
+        etoken = 2;
+    }else if(params.version == 3){
+        model_name = "chatglm3";
+        etoken = 2;
+    }
+
+    // 自定义 Ctrl C 信号的处理函数
+    struct sigaction sigint_action;
+    sigint_action.sa_handler = sigint_handler;  // 设置信号处理函数
+    sigemptyset(&sigint_action.sa_mask);
+    sigint_action.sa_flags = 0;
+    sigaction(SIGINT, &sigint_action, NULL);
+    
+    // 打印基本的参数
+    fprintf(stderr, "%s: interactive mode on.\n", __func__);
+    fprintf(stderr,
+            "sampling parameters: temp = %f, top_k = %d, top_p = %f, "
+            "repeat_last_n = %i, repeat_penalty = %f\n",
+            params.temp, params.top_k, params.top_p, params.repeat_last_n,
+            params.repeat_penalty);
+    fprintf(stderr, "\n\n");
+
+    std::vector<char> embd;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  main                                  */
+    /* -------------------------------------------------------------------------- */
+    // ※ 创建模型实例 model  
+    std::shared_ptr<inferllm::Model> model = std::make_shared<inferllm::Model>(config, model_name);
+    model->load(params.model);
+    model->init(params.top_k, params.top_p, params.temp, params.repeat_penalty, params.repeat_last_n, params.seed, etoken);
+
+    // 文本提示
+    fprintf(stderr,
+            "== 运行模型中. ==\n"
+            " - 输入 Ctrl+C 将在退出程序.\n"
+            " - 如果你想换行，请在行末输入'\\'符号.\n");
+
+    
+    bool is_interacting = true;     // True: 输入用户问题   False：输出模型响应
+    std::string user_input, output; // 输入输出的字符串
+    int iter = 0;       // 轮次编号
+    int token_id = 0;   // 已经输出的总token数
+    bool flag = true;   // 切换标志
+    // int last_token;
+    // 直到模型剩余的 token 用完才结束
+    while (model->get_remain_token() > 0) {
+        /* ------------------------------- 生成 token 头 ------------------------------- */
+        if(flag){
+            // 处理输入
+            printf("\n> ");
+            user_input = "[Round " + std::to_string(iter) + "]\n\n问：";
+            readInput(user_input); 
+            user_input += "\n\n答：";
+        
+
+            // 根据输入，推理出 token 头，得到其对应的字符串
+            output = model->decode(user_input);  // 🌟
+            
+            // 处理并显示字符串
+            fix_word(output); 
+            printf("%s", output.c_str());
+            fflush(stdout);  
+            user_input.clear();
+
+            // 更新重要变量
+            flag = false;
+            iter++;
+        }
+        /* ------------------------------- 迭代生成后续 token ------------------------------- */
+        else{
+            // 根据上一个 token 推导下一个 token，得到对应的字符串
+            int token;
+            string one_token_str = model->decode_iter(token);   // 🌟
+            
+            // 处理输出并显示
+            fix_word(one_token_str);
+            printf("%s", one_token_str.c_str());
+            fflush(stdout);
+            token_id++;
+            iter++;
+            
+            // 每10个token记录更新一次推理速度的记录
+            if (token_id % 10 == 0) {
+                running_summary = model->decode_summary();
+            }
+            
+            // 输出完毕
+            if (token == etoken) {
+                running_summary = model->decode_summary();
+                printf("\n");
+                flag = true;
+            }
+        }        
+    }
+
+    return 0;
+}
